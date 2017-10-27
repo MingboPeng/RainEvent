@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+  <style>
+    body { margin:0;position:fixed;top:0;right:0;bottom:0;left:0; }
+    #data{    height: 100%;
+    overflow-y: scroll;}
+  </style>
+</head>
+
+<body>
+  <div id="export"></div>
+ <input type="file" id="file-input" >
+ <button id="savecsv" class="btn btn-default btn-xs" onclick="saveToCSV()">Save Selection to File</button>
+<div id="file-content"></div>
+  <script>
+    function readSingleFile(e) {
+      var file = e.target.files[0];
+      if (!file) {
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var contents = e.target.result;
+        // Display file content
+        //displayContents(contents);
+        
+        var data = d3.csvParse(contents);
+
+          //originalDataLength = data.length;
+
+          if (data !== null) {
+            loadData (data)
+          };
+      };
+      reader.readAsText(file);
+    }
+ 
+    function displayContents(contents) {
+      var element = document.getElementById('file-content');
+      element.innerHTML = contents;
+    }
+ 
+		document.getElementById('file-input').addEventListener('change', readSingleFile, false);
+    
+    
+    	
+    
+    
+    var dataPath = "1107431.csv"
+    
+    
+    var vaildRainData = [];
+//     vaildRainData.push({DATE:0, RAIN:0});
+
+    function loadData (data){
+      for (i=1;i<data.length-1;i++) {
+        var parseTime = d3.timeParse("%Y%m%d %H:%M");
+        var d0 = data[i-1];
+        var d1 = data[i];
+        var d2 = data[i+1];
+
+        var date0 = parseTime(d0.DATE);
+        var date1 = parseTime(d1.DATE);
+        var date2 = parseTime(d2.DATE);
+
+        var rain0 = parseFloat(d0.HPCP).toFixed(2);
+        var rain = parseFloat(d1.HPCP).toFixed(2);
+        if(rain0>=998){rain0 = 0.00;}
+        if(rain>=998){continue}
+
+        var diffHr0 = parseInt(date1-date0)/3600000; //hours
+        var diffHr = parseInt(date2-date1)/3600000; //hours
+
+        if((diffHr0 != 1) && diffHr ===1){
+          //add new in vaildRainData
+          
+          dateString = date1.toISOString().slice(0,10);
+          hourString = date1.toISOString().slice(11,16);
+          addSpace ()
+          addNew(dateString,hourString,rain);
+          
+          var newobj = {DATE:dateString,TIME:hourString, RAIN:rain}
+          vaildRainData.push(newobj);
+          
+          
+
+        }else if (diffHr0 == 1 && vaildRainData.length>0){
+          
+          
+//           if(vaildRainData.length==0){
+//             dateString = date0.toISOString().slice(0,10);
+//             hourString = date0.toISOString().slice(11,16);
+            
+            
+//             var newobj = {DATE:dateString,TIME:hourString, RAIN:rain0}
+//           	vaildRainData.push(newobj);
+            
+//             addNew(dateString,hourString,rain0);
+//           }
+          
+          
+          //add to the last of vaildRainData
+          var lastData = vaildRainData[vaildRainData.length-1];
+          lastData.RAIN = (parseFloat(lastData.RAIN) + parseFloat(rain)).toFixed(2);
+          vaildRainData.pop()
+          vaildRainData.push(lastData);
+          
+          dateString = date1.toISOString().slice(0,10);
+          hourString = date1.toISOString().slice(11,16);
+          addNew(dateString,hourString,rain);
+
+        }else{
+          dateString = date1.toISOString().slice(0,10);
+          hourString = date1.toISOString().slice(11,16);
+          if(rain>=0.1){
+            addSpace ()
+						addNew(dateString,hourString,rain);
+            var newobj = {DATE:dateString,TIME:hourString, RAIN:rain}
+          	vaildRainData.push(newobj);
+            
+          }else{
+            addNonEvent(dateString,hourString,rain);
+          }
+        }
+
+      }
+    }
+    
+    function addNew (date,hour, data){
+      d3.select('#data').append('p').text(date+ ' '+hour+ ' '+data).style("color",'red').style("margin-left",'5em')
+    }
+
+    function addNonEvent (date,hour, data){
+     d3.select('#data').append('p').text(date + ' '+hour+ ' '+data)
+    }
+    
+    function addSpace (){
+      d3.select('#data').append('p').text(vaildRainData.length + '--------------NEW EVENT--------------')
+    }
+    function saveToCSV() {
+
+            // modified from http://stackoverflow.com/questions/14964035/how-to-export-javascript-array-info-to-csv-on-client-side
+      			var data = vaildRainData;
+            var csvTitle = d3.keys(data[0]);
+
+            var csvContent = "data:attachment/csv;charset=utf-8,";
+            csvContent += csvTitle.join(",") + "\n"; //add first row
+
+            data.forEach(function (infoArray, index) {
+                dataString = d3.values(infoArray);
+                dataString = dataString.join(",");
+                csvContent += index < data.length ? dataString + "\n" : dataString;
+
+            });
+
+            csvContent = encodeURI(csvContent);
+      var link = document.createElement("a");
+      link.setAttribute("href", csvContent);
+      link.setAttribute("download", "my_data.csv");
+      document.body.appendChild(link); // Required for FF
+
+      link.click(); // This will download the data file named "my_data.csv".
+
+//             var a = d3.select("#export")
+//                 .append("a")
+//                 .attr("href", csvContent)
+//                 .attr("target", '_blank')
+//                 .attr("download", 'DesignExplorer_SelectedResults.csv');
+
+//             a.click();
+        }
+    console.log(vaildRainData);
+
+  </script>
+  <div id = "data"></div>
+</body>
